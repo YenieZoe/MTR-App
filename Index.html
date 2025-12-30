@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MTR Real-Time Arrivals</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #f8f9fa;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #e9ecef;
+      --text-primary: #1a1a2e;
+      --text-secondary: #4a4a68;
+      --text-muted: #6c757d;
+      --border-color: #dee2e6;
+      --shadow: 0 4px 24px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+
+      /* MTR Line Colors */
+      --line-AEL: #00888a;
+      --line-TCL: #f7943e;
+      --line-TML: #9a3b26;
+      --line-TKL: #7d499d;
+      --line-EAL: #5eb6e4;
+      --line-SIL: #b5bd00;
+      --line-TWL: #e60012;
+      --line-ISL: #0075c9;
+      --line-KTL: #00a040;
+      --line-DRL: #f550a6;
+    }
+
+    .dark {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --text-primary: #f0f6fc;
+      --text-secondary: #c9d1d9;
+      --text-muted: #8b949e;
+      --border-color: #30363d;
+      --shadow: 0 4px 24px rgba(0,0,0,0.3);
+      --shadow-lg: 0 8px 40px rgba(0,0,0,0.4);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans HK', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .app-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 16px;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 24px 0;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .mtr-logo {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #e60012, #c4000f);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.5px;
+    }
+
+    .header p {
+      color: var(--text-muted);
+      margin-top: 8px;
+      font-size: 0.9rem;
+    }
+
+    /* Line Selector */
+    .line-selector {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 600px) {
+      .line-selector {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 6px;
+      }
+    }
+
+    .line-btn {
+      padding: 12px 8px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: white;
+      transition: all 0.2s ease;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .line-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0);
+      transition: background 0.2s;
+    }
+
+    .line-btn:hover::before {
+      background: rgba(255,255,255,0.15);
+    }
+
+    .line-btn.active {
+      transform: scale(1.02);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    }
+
+    .line-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30px;
+      height: 3px;
+      background: white;
+      border-radius: 2px 2px 0 0;
+    }
+
+    .line-btn span {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 400;
+      opacity: 0.9;
+      margin-top: 2px;
+    }
+
+    /* Station List */
+    .station-section {
+      background: var(--bg-secondary);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .section-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .line-indicator {
+      width: 6px;
+      height: 32px;
+      border-radius: 3px;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .station-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 4px;
+      padding: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .station-btn {
+      padding: 12px 14px;
+      border: none;
+      border-radius: 10px;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+      position: relative;
+    }
+
+    .station-btn:hover {
+      background: var(--border-color);
+    }
+
+    .station-btn.active {
+      color: white;
+    }
+
+    .station-btn .station-code {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 400;
+      opacity: 0.7;
+      margin-top: 2px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Arrival Panel */
+    .arrival-panel {
+      background: var(--bg-secondary);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .arrival-header {
+      padding: 20px;
+      text-align: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .arrival-station-name {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .arrival-line-name {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .arrival-content {
+      padding: 16px;
+    }
+
+    .direction-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .direction-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .direction-card {
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .direction-header {
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: white;
+    }
+
+    .direction-arrow {
+      width: 28px;
+      height: 28px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .direction-label {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .direction-dest {
+      font-size: 0.75rem;
+      opacity: 0.85;
+    }
+
+    .train-list {
+      padding: 12px;
+    }
+
+    .train-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: var(--bg-secondary);
+      border-radius: 10px;
+      margin-bottom: 8px;
+    }
+
+    .train-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .train-dest {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .train-platform {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .train-time {
+      text-align: right;
+    }
+
+    .train-minutes {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    .train-minutes.arriving {
+      color: #00a040;
+    }
+
+    .train-minutes-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .no-trains {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* Loading State */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px;
+      color: var(--text-muted);
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border-color);
+      border-top-color: var(--line-TWL);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--text-muted);
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .empty-state h3 {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+    }
+
+    /* Error State */
+    .error-state {
+      text-align: center;
+      padding: 32px 24px;
+      background: #fff3f3;
+      border-radius: 12px;
+      margin: 16px;
+    }
+
+    .dark .error-state {
+      background: #2d1f1f;
+    }
+
+    .error-state h4 {
+      color: #e60012;
+      margin-bottom: 8px;
+    }
+
+    .error-state p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Last Updated */
+    .last-updated {
+      text-align: center;
+      padding: 12px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border-color);
+    }
+
+    /* Delay Badge */
+    .delay-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #fff3cd;
+      color: #856404;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      margin-top: 8px;
+    }
+
+    .dark .delay-badge {
+      background: #3d3419;
+      color: #ffc107;
+    }
+
+    /* Scrollbar */
+    .station-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .station-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .station-list::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 3px;
+    }
+
+    /* Refresh Button */
+    .refresh-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 12px;
+    }
+
+    .refresh-btn:hover {
+      background: var(--border-color);
+    }
+
+    .refresh-btn.spinning svg {
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* Route Badge */
+    .route-badge {
+      font-size: 0.65rem;
+      background: rgba(0,0,0,0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+
+    .dark .route-badge {
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* Animation */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.3s ease;
+    }
+
+    /* Search Bar */
+    .search-container {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .search-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 16px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 14px 44px;
+      font-size: 16px;
+      font-family: inherit;
+      background: var(--bg-secondary);
+      border: 2px solid var(--border-color);
+      border-radius: 14px;
+      color: var(--text-primary);
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-input:focus {
+      border-color: var(--line-TWL);
+      box-shadow: 0 0 0 4px rgba(230, 0, 18, 0.1);
+    }
+
+    .dark .search-input:focus {
+      box-shadow: 0 0 0 4px rgba(230, 0, 18, 0.2);
+    }
+
+    .search-clear {
+      position: absolute;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .search-clear:hover {
+      background: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .search-results {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      background: var(--bg-secondary);
+      border-radius: 14px;
+      box-shadow: var(--shadow-lg);
+      max-height: 400px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+      border: 1px solid var(--border-color);
+    }
+
+    .search-results.active {
+      display: block;
+    }
+
+    .search-result-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .search-result-item:last-child {
+      border-bottom: none;
+    }
+
+    .search-result-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .search-result-line-badge {
+      width: 42px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .search-result-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .search-result-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .search-result-details {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .search-result-code {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+    }
+
+    .search-no-results {
+      padding: 24px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .search-no-results-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+      opacity: 0.5;
+    }
+
+    .search-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 8px;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-tertiary);
+      border-radius: 0 0 14px 14px;
+    }
+
+    /* Highlight matched text */
+    .highlight {
+      background: rgba(230, 0, 18, 0.2);
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+
+    .dark .highlight {
+      background: rgba(230, 0, 18, 0.35);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <h1>
+        <div class="mtr-logo">MTR</div>
+        Real-Time Arrivals
+      </h1>
+      <p>港鐵實時到站資訊</p>
+    </header>
+
+    <!-- Search Bar -->
+    <div class="search-container">
+      <div class="search-input-wrapper">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input
+          type="text"
+          id="searchInput"
+          class="search-input"
+          placeholder="Search stations... 搜尋車站"
+          autocomplete="off"
+        >
+        <button class="search-clear" id="searchClear" style="display: none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="search-results" id="searchResults"></div>
+    </div>
+
+    <div class="line-selector" id="lineSelector"></div>
+
+    <section class="station-section" id="stationSection" style="display: none;">
+      <div class="section-header">
+        <div class="line-indicator" id="lineIndicator"></div>
+        <h2 class="section-title" id="sectionTitle">Select a Station</h2>
+      </div>
+      <div class="station-list" id="stationList"></div>
+    </section>
+
+    <section class="arrival-panel" id="arrivalPanel" style="display: none;">
+      <div class="arrival-header" id="arrivalHeader">
+        <div class="arrival-station-name" id="arrivalStationName"></div>
+        <div class="arrival-line-name" id="arrivalLineName"></div>
+        <div id="delayBadge"></div>
+      </div>
+      <div class="arrival-content" id="arrivalContent">
+        <div class="empty-state">
+          <div class="empty-icon">🚇</div>
+          <h3>Select a Station</h3>
+          <p>Choose a line and station to view arrivals</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // MTR Data Configuration
+    const MTR_LINES = {
+      AEL: {
+        name: 'Airport Express',
+        nameTC: '機場快綫',
+        color: '#00888a',
+        stations: [
+          { code: 'HOK', name: 'Hong Kong', nameTC: '香港' },
+          { code: 'KOW', name: 'Kowloon', nameTC: '九龍' },
+          { code: 'TSY', name: 'Tsing Yi', nameTC: '青衣' },
+          { code: 'AIR', name: 'Airport', nameTC: '機場' },
+          { code: 'AWE', name: 'AsiaWorld Expo', nameTC: '博覽館' }
+        ],
+        upDest: ['AIR', 'AWE'],
+        downDest: ['HOK']
+      },
+      TCL: {
+        name: 'Tung Chung Line',
+        nameTC: '東涌綫',
+        color: '#f7943e',
+        stations: [
+          { code: 'HOK', name: 'Hong Kong', nameTC: '香港' },
+          { code: 'KOW', name: 'Kowloon', nameTC: '九龍' },
+          { code: 'OLY', name: 'Olympic', nameTC: '奧運' },
+          { code: 'NAC', name: 'Nam Cheong', nameTC: '南昌' },
+          { code: 'LAK', name: 'Lai King', nameTC: '荔景' },
+          { code: 'TSY', name: 'Tsing Yi', nameTC: '青衣' },
+          { code: 'SUN', name: 'Sunny Bay', nameTC: '欣澳' },
+          { code: 'TUC', name: 'Tung Chung', nameTC: '東涌' }
+        ],
+        upDest: ['TUC'],
+        downDest: ['HOK']
+      },
+      TML: {
+        name: 'Tuen Ma Line',
+        nameTC: '屯馬綫',
+        color: '#9a3b26',
+        stations: [
+          { code: 'WKS', name: 'Wu Kai Sha', nameTC: '烏溪沙' },
+          { code: 'MOS', name: 'Ma On Shan', nameTC: '馬鞍山' },
+          { code: 'HEO', name: 'Heng On', nameTC: '恆安' },
+          { code: 'TSH', name: 'Tai Shui Hang', nameTC: '大水坑' },
+          { code: 'SHM', name: 'Shek Mun', nameTC: '石門' },
+          { code: 'CIO', name: 'City One', nameTC: '第一城' },
+          { code: 'STW', name: 'Sha Tin Wai', nameTC: '沙田圍' },
+          { code: 'CKT', name: 'Che Kung Temple', nameTC: '車公廟' },
+          { code: 'TAW', name: 'Tai Wai', nameTC: '大圍' },
+          { code: 'HIK', name: 'Hin Keng', nameTC: '顯徑' },
+          { code: 'DIH', name: 'Diamond Hill', nameTC: '鑽石山' },
+          { code: 'KAT', name: 'Kai Tak', nameTC: '啟德' },
+          { code: 'SUW', name: 'Sung Wong Toi', nameTC: '宋皇臺' },
+          { code: 'TKW', name: 'To Kwa Wan', nameTC: '土瓜灣' },
+          { code: 'HOM', name: 'Ho Man Tin', nameTC: '何文田' },
+          { code: 'HUH', name: 'Hung Hom', nameTC: '紅磡' },
+          { code: 'ETS', name: 'East Tsim Sha Tsui', nameTC: '尖東' },
+          { code: 'AUS', name: 'Austin', nameTC: '柯士甸' },
+          { code: 'NAC', name: 'Nam Cheong', nameTC: '南昌' },
+          { code: 'MEF', name: 'Mei Foo', nameTC: '美孚' },
+          { code: 'TWW', name: 'Tsuen Wan West', nameTC: '荃灣西' },
+          { code: 'KSR', name: 'Kam Sheung Road', nameTC: '錦上路' },
+          { code: 'YUL', name: 'Yuen Long', nameTC: '元朗' },
+          { code: 'LOP', name: 'Long Ping', nameTC: '朗屏' },
+          { code: 'TIS', name: 'Tin Shui Wai', nameTC: '天水圍' },
+          { code: 'SIH', name: 'Siu Hong', nameTC: '兆康' },
+          { code: 'TUM', name: 'Tuen Mun', nameTC: '屯門' }
+        ],
+        upDest: ['TUM'],
+        downDest: ['WKS']
+      },
+      TKL: {
+        name: 'Tseung Kwan O Line',
+        nameTC: '將軍澳綫',
+        color: '#7d499d',
+        stations: [
+          { code: 'NOP', name: 'North Point', nameTC: '北角' },
+          { code: 'QUB', name: 'Quarry Bay', nameTC: '鰂魚涌' },
+          { code: 'YAT', name: 'Yau Tong', nameTC: '油塘' },
+          { code: 'TIK', name: 'Tiu Keng Leng', nameTC: '調景嶺' },
+          { code: 'TKO', name: 'Tseung Kwan O', nameTC: '將軍澳' },
+          { code: 'LHP', name: 'LOHAS Park', nameTC: '康城' },
+          { code: 'HAH', name: 'Hang Hau', nameTC: '坑口' },
+          { code: 'POA', name: 'Po Lam', nameTC: '寶琳' }
+        ],
+        upDest: ['POA', 'LHP'],
+        downDest: ['TIK', 'NOP']
+      },
+      EAL: {
+        name: 'East Rail Line',
+        nameTC: '東鐵綫',
+        color: '#5eb6e4',
+        stations: [
+          { code: 'ADM', name: 'Admiralty', nameTC: '金鐘' },
+          { code: 'EXC', name: 'Exhibition Centre', nameTC: '會展' },
+          { code: 'HUH', name: 'Hung Hom', nameTC: '紅磡' },
+          { code: 'MKK', name: 'Mong Kok East', nameTC: '旺角東' },
+          { code: 'KOT', name: 'Kowloon Tong', nameTC: '九龍塘' },
+          { code: 'TAW', name: 'Tai Wai', nameTC: '大圍' },
+          { code: 'SHT', name: 'Sha Tin', nameTC: '沙田' },
+          { code: 'FOT', name: 'Fo Tan', nameTC: '火炭' },
+          { code: 'RAC', name: 'Racecourse', nameTC: '馬場' },
+          { code: 'UNI', name: 'University', nameTC: '大學' },
+          { code: 'TAP', name: 'Tai Po Market', nameTC: '大埔墟' },
+          { code: 'TWO', name: 'Tai Wo', nameTC: '太和' },
+          { code: 'FAN', name: 'Fanling', nameTC: '粉嶺' },
+          { code: 'SHS', name: 'Sheung Shui', nameTC: '上水' },
+          { code: 'LOW', name: 'Lo Wu', nameTC: '羅湖' },
+          { code: 'LMC', name: 'Lok Ma Chau', nameTC: '落馬洲' }
+        ],
+        upDest: ['LMC', 'LOW', 'SHS', 'TAP', 'RAC', 'FOT', 'SHT'],
+        downDest: ['ADM', 'HUH', 'MKK']
+      },
+      SIL: {
+        name: 'South Island Line',
+        nameTC: '南港島綫',
+        color: '#b5bd00',
+        stations: [
+          { code: 'ADM', name: 'Admiralty', nameTC: '金鐘' },
+          { code: 'OCP', name: 'Ocean Park', nameTC: '海洋公園' },
+          { code: 'WCH', name: 'Wong Chuk Hang', nameTC: '黃竹坑' },
+          { code: 'LET', name: 'Lei Tung', nameTC: '利東' },
+          { code: 'SOH', name: 'South Horizons', nameTC: '海怡半島' }
+        ],
+        upDest: ['SOH'],
+        downDest: ['ADM']
+      },
+      TWL: {
+        name: 'Tsuen Wan Line',
+        nameTC: '荃灣綫',
+        color: '#e60012',
+        stations: [
+          { code: 'CEN', name: 'Central', nameTC: '中環' },
+          { code: 'ADM', name: 'Admiralty', nameTC: '金鐘' },
+          { code: 'TST', name: 'Tsim Sha Tsui', nameTC: '尖沙咀' },
+          { code: 'JOR', name: 'Jordan', nameTC: '佐敦' },
+          { code: 'YMT', name: 'Yau Ma Tei', nameTC: '油麻地' },
+          { code: 'MOK', name: 'Mong Kok', nameTC: '旺角' },
+          { code: 'PRE', name: 'Prince Edward', nameTC: '太子' },
+          { code: 'SSP', name: 'Sham Shui Po', nameTC: '深水埗' },
+          { code: 'CSW', name: 'Cheung Sha Wan', nameTC: '長沙灣' },
+          { code: 'LCK', name: 'Lai Chi Kok', nameTC: '荔枝角' },
+          { code: 'MEF', name: 'Mei Foo', nameTC: '美孚' },
+          { code: 'LAK', name: 'Lai King', nameTC: '荔景' },
+          { code: 'KWF', name: 'Kwai Fong', nameTC: '葵芳' },
+          { code: 'KWH', name: 'Kwai Hing', nameTC: '葵興' },
+          { code: 'TWH', name: 'Tai Wo Hau', nameTC: '大窩口' },
+          { code: 'TSW', name: 'Tsuen Wan', nameTC: '荃灣' }
+        ],
+        upDest: ['TSW'],
+        downDest: ['CEN']
+      },
+      ISL: {
+        name: 'Island Line',
+        nameTC: '港島綫',
+        color: '#0075c9',
+        stations: [
+          { code: 'KET', name: 'Kennedy Town', nameTC: '堅尼地城' },
+          { code: 'HKU', name: 'HKU', nameTC: '香港大學' },
+          { code: 'SYP', name: 'Sai Ying Pun', nameTC: '西營盤' },
+          { code: 'SHW', name: 'Sheung Wan', nameTC: '上環' },
+          { code: 'CEN', name: 'Central', nameTC: '中環' },
+          { code: 'ADM', name: 'Admiralty', nameTC: '金鐘' },
+          { code: 'WAC', name: 'Wan Chai', nameTC: '灣仔' },
+          { code: 'CAB', name: 'Causeway Bay', nameTC: '銅鑼灣' },
+          { code: 'TIH', name: 'Tin Hau', nameTC: '天后' },
+          { code: 'FOH', name: 'Fortress Hill', nameTC: '炮台山' },
+          { code: 'NOP', name: 'North Point', nameTC: '北角' },
+          { code: 'QUB', name: 'Quarry Bay', nameTC: '鰂魚涌' },
+          { code: 'TAK', name: 'Tai Koo', nameTC: '太古' },
+          { code: 'SWH', name: 'Sai Wan Ho', nameTC: '西灣河' },
+          { code: 'SKW', name: 'Shau Kei Wan', nameTC: '筲箕灣' },
+          { code: 'HFC', name: 'Heng Fa Chuen', nameTC: '杏花邨' },
+          { code: 'CHW', name: 'Chai Wan', nameTC: '柴灣' }
+        ],
+        upDest: ['CHW'],
+        downDest: ['KET']
+      },
+      KTL: {
+        name: 'Kwun Tong Line',
+        nameTC: '觀塘綫',
+        color: '#00a040',
+        stations: [
+          { code: 'WHA', name: 'Whampoa', nameTC: '黃埔' },
+          { code: 'HOM', name: 'Ho Man Tin', nameTC: '何文田' },
+          { code: 'YMT', name: 'Yau Ma Tei', nameTC: '油麻地' },
+          { code: 'MOK', name: 'Mong Kok', nameTC: '旺角' },
+          { code: 'PRE', name: 'Prince Edward', nameTC: '太子' },
+          { code: 'SKM', name: 'Shek Kip Mei', nameTC: '石硤尾' },
+          { code: 'KOT', name: 'Kowloon Tong', nameTC: '九龍塘' },
+          { code: 'LOF', name: 'Lok Fu', nameTC: '樂富' },
+          { code: 'WTS', name: 'Wong Tai Sin', nameTC: '黃大仙' },
+          { code: 'DIH', name: 'Diamond Hill', nameTC: '鑽石山' },
+          { code: 'CHH', name: 'Choi Hung', nameTC: '彩虹' },
+          { code: 'KOB', name: 'Kowloon Bay', nameTC: '九龍灣' },
+          { code: 'NTK', name: 'Ngau Tau Kok', nameTC: '牛頭角' },
+          { code: 'KWT', name: 'Kwun Tong', nameTC: '觀塘' },
+          { code: 'LAT', name: 'Lam Tin', nameTC: '藍田' },
+          { code: 'YAT', name: 'Yau Tong', nameTC: '油塘' },
+          { code: 'TIK', name: 'Tiu Keng Leng', nameTC: '調景嶺' }
+        ],
+        upDest: ['TIK'],
+        downDest: ['WHA']
+      },
+      DRL: {
+        name: 'Disneyland Resort Line',
+        nameTC: '迪士尼綫',
+        color: '#f550a6',
+        stations: [
+          { code: 'SUN', name: 'Sunny Bay', nameTC: '欣澳' },
+          { code: 'DIS', name: 'Disneyland Resort', nameTC: '迪士尼' }
+        ],
+        upDest: ['SUN'],
+        downDest: ['DIS']
+      }
+    };
+
+    // Station name lookup
+    const STATION_NAMES = {};
+    Object.values(MTR_LINES).forEach(line => {
+      line.stations.forEach(station => {
+        STATION_NAMES[station.code] = station;
+      });
+    });
+
+    // State
+    let selectedLine = null;
+    let selectedStation = null;
+    let refreshInterval = null;
+
+    // Dark mode detection
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark');
+    }
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+      if (event.matches) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    });
+
+    // Initialize line selector
+    function initLineSelector() {
+      const container = document.getElementById('lineSelector');
+      const lines = Object.entries(MTR_LINES);
+
+      lines.forEach(([code, line]) => {
+        const btn = document.createElement('button');
+        btn.className = 'line-btn';
+        btn.style.background = line.color;
+        btn.dataset.line = code;
+        btn.innerHTML = `${code}<span>${line.nameTC}</span>`;
+        btn.addEventListener('click', () => selectLine(code));
+        container.appendChild(btn);
+      });
+    }
+
+    // Select line
+    function selectLine(lineCode) {
+      selectedLine = lineCode;
+      selectedStation = null;
+
+      // Update line buttons
+      document.querySelectorAll('.line-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.line === lineCode);
+      });
+
+      // Show station section
+      const line = MTR_LINES[lineCode];
+      document.getElementById('stationSection').style.display = 'block';
+      document.getElementById('lineIndicator').style.background = line.color;
+      document.getElementById('sectionTitle').textContent = `${line.name} - ${line.nameTC}`;
+
+      // Populate stations
+      const stationList = document.getElementById('stationList');
+      stationList.innerHTML = '';
+
+      line.stations.forEach(station => {
+        const btn = document.createElement('button');
+        btn.className = 'station-btn';
+        btn.dataset.station = station.code;
+        btn.innerHTML = `${station.name}<span class="station-code">${station.code} ${station.nameTC}</span>`;
+        btn.addEventListener('click', () => selectStation(station.code));
+        stationList.appendChild(btn);
+      });
+
+      // Hide arrival panel
+      document.getElementById('arrivalPanel').style.display = 'none';
+
+      // Clear any existing refresh interval
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+    }
+
+    // Select station
+    function selectStation(stationCode) {
+      selectedStation = stationCode;
+
+      // Update station buttons
+      const line = MTR_LINES[selectedLine];
+      document.querySelectorAll('.station-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.station === stationCode);
+        if (btn.dataset.station === stationCode) {
+          btn.style.background = line.color;
+        } else {
+          btn.style.background = '';
+        }
+      });
+
+      // Show arrival panel
+      const station = line.stations.find(s => s.code === stationCode);
+      document.getElementById('arrivalPanel').style.display = 'block';
+      document.getElementById('arrivalStationName').textContent = `${station.name} ${station.nameTC}`;
+      document.getElementById('arrivalLineName').textContent = `${line.name} | ${line.nameTC}`;
+      document.getElementById('arrivalHeader').style.borderBottomColor = line.color;
+
+      // Fetch arrival data
+      fetchArrivals();
+
+      // Set up auto-refresh every 30 seconds
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+      refreshInterval = setInterval(fetchArrivals, 30000);
+    }
+
+    // Fetch arrivals from API
+    async function fetchArrivals() {
+      const content = document.getElementById('arrivalContent');
+      const line = MTR_LINES[selectedLine];
+
+      content.innerHTML = `
+        <div class="loading">
+          <div class="loading-spinner"></div>
+          <span>Loading arrivals...</span>
+        </div>
+      `;
+
+      try {
+        const response = await fetch(
+          `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${selectedLine}&sta=${selectedStation}&lang=EN`
+        );
+        const data = await response.json();
+
+        if (data.status === 0) {
+          // Error or special arrangement
+          content.innerHTML = `
+            <div class="error-state">
+              <h4>⚠️ Service Alert</h4>
+              <p>${data.message}</p>
+              ${data.url ? `<a href="${data.url}" target="_blank" style="color: var(--line-TWL);">More Info</a>` : ''}
+            </div>
+          `;
+          document.getElementById('delayBadge').innerHTML = '';
+          return;
+        }
+
+        const stationData = data.data[`${selectedLine}-${selectedStation}`];
+        const isDelayed = data.isdelay === 'Y';
+
+        // Show delay badge if needed
+        document.getElementById('delayBadge').innerHTML = isDelayed
+          ? '<div class="delay-badge">⚠️ Train Delayed</div>'
+          : '';
+
+        // Render arrivals
+        renderArrivals(stationData, line, data.curr_time);
+
+      } catch (error) {
+        console.error('Error fetching arrivals:', error);
+        content.innerHTML = `
+          <div class="error-state">
+            <h4>❌ Connection Error</h4>
+            <p>Unable to fetch arrival data. Please try again.</p>
+            <button class="refresh-btn" onclick="fetchArrivals()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+              </svg>
+              Retry
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    // Render arrivals
+    function renderArrivals(stationData, line, currentTime) {
+      const content = document.getElementById('arrivalContent');
+      const upTrains = stationData?.UP || [];
+      const downTrains = stationData?.DOWN || [];
+
+      // Determine direction labels
+      const upLabel = getDirectionLabel(line, 'UP');
+      const downLabel = getDirectionLabel(line, 'DOWN');
+
+      content.innerHTML = `
+        <div class="direction-container fade-in">
+          <div class="direction-card">
+            <div class="direction-header" style="background: ${line.color};">
+              <div class="direction-arrow">▲</div>
+              <div>
+                <div class="direction-label">${upLabel.direction}</div>
+                <div class="direction-dest">To ${upLabel.destinations}</div>
+              </div>
+            </div>
+            <div class="train-list" id="upTrains">
+              ${renderTrainList(upTrains, currentTime)}
+            </div>
+          </div>
+          <div class="direction-card">
+            <div class="direction-header" style="background: ${line.color};">
+              <div class="direction-arrow">▼</div>
+              <div>
+                <div class="direction-label">${downLabel.direction}</div>
+                <div class="direction-dest">To ${downLabel.destinations}</div>
+              </div>
+            </div>
+            <div class="train-list" id="downTrains">
+              ${renderTrainList(downTrains, currentTime)}
+            </div>
+          </div>
+        </div>
+        <div class="last-updated">
+          Last updated: ${currentTime || new Date().toLocaleTimeString()}
+          <button class="refresh-btn" onclick="fetchArrivals()" id="refreshBtn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+            </svg>
+            Refresh
+          </button>
+        </div>
+      `;
+    }
+
+    // Get direction labels
+    function getDirectionLabel(line, direction) {
+      const destinations = direction === 'UP' ? line.upDest : line.downDest;
+      const destNames = destinations.map(code => {
+        const station = STATION_NAMES[code];
+        return station ? station.name : code;
+      });
+
+      return {
+        direction: direction === 'UP' ? 'Upbound' : 'Downbound',
+        destinations: destNames.join(' / ')
+      };
+    }
+
+    // Render train list
+    function renderTrainList(trains, currentTime) {
+      if (!trains || trains.length === 0) {
+        return '<div class="no-trains">No upcoming trains</div>';
+      }
+
+      return trains.map(train => {
+        const destStation = STATION_NAMES[train.dest];
+        const destName = destStation ? `${destStation.name} ${destStation.nameTC}` : train.dest;
+        const minutes = calculateMinutes(train.time, currentTime);
+        const isArriving = minutes <= 1;
+        const routeBadge = train.route === 'RAC' ? '<span class="route-badge">via Racecourse</span>' : '';
+        const timeType = train.timetype === 'A' ? 'Arriving' : train.timetype === 'D' ? 'Departing' : '';
+
+        return `
+          <div class="train-item">
+            <div>
+              <div class="train-dest">${destName}${routeBadge}</div>
+              <div class="train-platform">Platform ${train.plat}${timeType ? ` • ${timeType}` : ''}</div>
+            </div>
+            <div class="train-time">
+              <div class="train-minutes ${isArriving ? 'arriving' : ''}">${isArriving ? 'Arr' : minutes}</div>
+              <div class="train-minutes-label">${isArriving ? 'Now' : 'min'}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Calculate minutes until arrival
+    function calculateMinutes(arrivalTime, currentTime) {
+      if (!arrivalTime || arrivalTime === '-') return '-';
+
+      const arrival = new Date(arrivalTime.replace(' ', 'T'));
+      const current = currentTime && currentTime !== '-'
+        ? new Date(currentTime.replace(' ', 'T'))
+        : new Date();
+
+      const diffMs = arrival - current;
+      const diffMins = Math.max(0, Math.round(diffMs / 60000));
+
+      return diffMins;
+    }
+
+    // Build search index - flatten all stations with their line info
+    function buildSearchIndex() {
+      const index = [];
+      Object.entries(MTR_LINES).forEach(([lineCode, line]) => {
+        line.stations.forEach(station => {
+          index.push({
+            lineCode,
+            lineName: line.name,
+            lineNameTC: line.nameTC,
+            lineColor: line.color,
+            stationCode: station.code,
+            stationName: station.name,
+            stationNameTC: station.nameTC,
+            // Create searchable text
+            searchText: `${station.name} ${station.nameTC} ${station.code} ${line.name} ${line.nameTC}`.toLowerCase()
+          });
+        });
+      });
+      return index;
+    }
+
+    const searchIndex = buildSearchIndex();
+
+    // Initialize search
+    function initSearch() {
+      const searchInput = document.getElementById('searchInput');
+      const searchClear = document.getElementById('searchClear');
+      const searchResults = document.getElementById('searchResults');
+
+      // Handle input
+      searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        searchClear.style.display = query ? 'flex' : 'none';
+
+        if (query.length === 0) {
+          searchResults.classList.remove('active');
+          return;
+        }
+
+        const results = performSearch(query);
+        renderSearchResults(results, query);
+      });
+
+      // Handle focus
+      searchInput.addEventListener('focus', () => {
+        const query = searchInput.value.trim();
+        if (query.length > 0) {
+          searchResults.classList.add('active');
+        }
+      });
+
+      // Handle clear button
+      searchClear.addEventListener('click', () => {
+        searchInput.value = '';
+        searchClear.style.display = 'none';
+        searchResults.classList.remove('active');
+        searchInput.focus();
+      });
+
+      // Handle click outside to close
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-container')) {
+          searchResults.classList.remove('active');
+        }
+      });
+
+      // Handle keyboard navigation
+      searchInput.addEventListener('keydown', (e) => {
+        const items = searchResults.querySelectorAll('.search-result-item');
+        const activeItem = searchResults.querySelector('.search-result-item.active');
+        let currentIndex = Array.from(items).indexOf(activeItem);
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (currentIndex < items.length - 1) {
+            items[currentIndex]?.classList.remove('active');
+            items[currentIndex + 1]?.classList.add('active');
+            items[currentIndex + 1]?.scrollIntoView({ block: 'nearest' });
+          } else if (currentIndex === -1 && items.length > 0) {
+            items[0].classList.add('active');
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (currentIndex > 0) {
+            items[currentIndex]?.classList.remove('active');
+            items[currentIndex - 1]?.classList.add('active');
+            items[currentIndex - 1]?.scrollIntoView({ block: 'nearest' });
+          }
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          const selected = searchResults.querySelector('.search-result-item.active') || items[0];
+          if (selected) {
+            selected.click();
+          }
+        } else if (e.key === 'Escape') {
+          searchResults.classList.remove('active');
+          searchInput.blur();
+        }
+      });
+    }
+
+    // Perform search
+    function performSearch(query) {
+      const normalizedQuery = query.toLowerCase();
+      const results = [];
+
+      searchIndex.forEach(item => {
+        // Check for matches
+        const nameMatch = item.stationName.toLowerCase().includes(normalizedQuery);
+        const nameTCMatch = item.stationNameTC.includes(query);
+        const codeMatch = item.stationCode.toLowerCase().includes(normalizedQuery);
+        const lineMatch = item.lineName.toLowerCase().includes(normalizedQuery);
+        const lineTCMatch = item.lineNameTC.includes(query);
+
+        if (nameMatch || nameTCMatch || codeMatch || lineMatch || lineTCMatch) {
+          // Calculate relevance score
+          let score = 0;
+          if (item.stationCode.toLowerCase() === normalizedQuery) score += 100;
+          if (item.stationName.toLowerCase().startsWith(normalizedQuery)) score += 50;
+          if (item.stationName.toLowerCase() === normalizedQuery) score += 100;
+          if (nameMatch) score += 30;
+          if (nameTCMatch) score += 30;
+          if (codeMatch) score += 20;
+          if (lineMatch) score += 10;
+          if (lineTCMatch) score += 10;
+
+          results.push({ ...item, score });
+        }
+      });
+
+      // Sort by score and limit results
+      return results
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 15);
+    }
+
+    // Highlight matched text
+    function highlightMatch(text, query) {
+      if (!query) return text;
+      const regex = new RegExp(`(${escapeRegExp(query)})`, 'gi');
+      return text.replace(regex, '<span class="highlight">$1</span>');
+    }
+
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Render search results
+    function renderSearchResults(results, query) {
+      const searchResults = document.getElementById('searchResults');
+
+      if (results.length === 0) {
+        searchResults.innerHTML = `
+          <div class="search-no-results">
+            <div class="search-no-results-icon">🔍</div>
+            <div>No stations found for "${query}"</div>
+            <div style="font-size: 0.8rem; margin-top: 4px;">找不到相關車站</div>
+          </div>
+        `;
+        searchResults.classList.add('active');
+        return;
+      }
+
+      const html = results.map(result => `
+        <div class="search-result-item" data-line="${result.lineCode}" data-station="${result.stationCode}">
+          <div class="search-result-line-badge" style="background: ${result.lineColor};">
+            ${result.lineCode}
+          </div>
+          <div class="search-result-info">
+            <div class="search-result-name">
+              ${highlightMatch(result.stationName, query)} ${highlightMatch(result.stationNameTC, query)}
+            </div>
+            <div class="search-result-details">
+              <span class="search-result-code">${result.stationCode}</span>
+              <span>${result.lineName}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      searchResults.innerHTML = html + `
+        <div class="search-hint">
+          Press ↵ to select • ↑↓ to navigate
+        </div>
+      `;
+
+      // Add click handlers
+      searchResults.querySelectorAll('.search-result-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const lineCode = item.dataset.line;
+          const stationCode = item.dataset.station;
+
+          // Clear search
+          document.getElementById('searchInput').value = '';
+          document.getElementById('searchClear').style.display = 'none';
+          searchResults.classList.remove('active');
+
+          // Select line and station
+          selectLine(lineCode);
+          setTimeout(() => selectStation(stationCode), 50);
+        });
+      });
+
+      searchResults.classList.add('active');
+    }
+
+    // Initialize
+    initLineSelector();
+    initSearch();
+  </script>
+</body>
+</html>
